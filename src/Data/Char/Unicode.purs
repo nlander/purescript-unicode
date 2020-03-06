@@ -40,7 +40,9 @@ import Prelude
 
 import Data.Char (toCharCode)
 import Data.Char.Unicode.Internal (UnicodeCategory(..), uTowtitle, uTowlower, uTowupper, uIswalnum, uIswalpha, uIswlower, uIswupper, uIswspace, uIswprint, uIswcntrl, uGencat)
-import Data.Maybe (Maybe(..))
+import Data.Enum (fromEnum, toEnum)
+import Data.Maybe (Maybe(..), fromJust)
+import Partial.Unsafe (unsafePartial)
 
 -- | Unicode General Categories (column 2 of the UnicodeData table) in
 -- | the order they are listed in the Unicode standard (the Unicode
@@ -516,11 +518,15 @@ toLower = withCharCode uTowlower
 toTitle :: Char -> Char
 toTitle = withCharCode uTowtitle
 
--- | We define this via the FFI because we want to avoid the
--- | dictionary overhead of going via Enum, and because we're certain
--- | that the Unicode table we used to generate these conversions
--- | doesn't generate char codes outside the valid range.
-foreign import withCharCode :: (Int -> Int) -> Char -> Char
+-- | There is no need for this to be an ffi call
+-- | as it is for the js backend. The motivation stated
+-- | for the js ffi call is a "dictionary overhead"
+-- | that comes with the char Enum instance. The erlang
+-- | version has no dictionary, because characters are
+-- | numbers in erlang. Therefore, fromEnum and toEnum are id
+-- | functions in their ffi implementation.
+withCharCode :: (Int -> Int) -> Char -> Char
+withCharCode f c = unsafePartial ((fromEnum >>> f >>> toEnum >>> fromJust) c)
 
 -- | Convert a single digit `Char` to the corresponding `Just Int` if its argument
 -- | satisfies `isHexDigit`, if it is one of `0..9, A..F, a..f`. Anything else
